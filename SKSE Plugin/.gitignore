@@ -35,3 +35,6 @@
 **/Build/**
 **/x64/**
 **/Win32/**
+
+# IDE files
+*.vs

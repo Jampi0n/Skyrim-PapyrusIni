@@ -3,6 +3,7 @@
 #include <ShlObj.h>
 
 #include "SkyrimEdition.h"
+#include "PapyrusIni.h"
 
 static PluginHandle	g_pluginHandle = kPluginHandle_Invalid;
 static SKSEPapyrusInterface* g_papyrus = NULL;
@@ -50,12 +51,12 @@ extern "C" {
 
 		g_papyrus = (SKSEPapyrusInterface*)skse->QueryInterface(kInterface_Papyrus);
 
-		//Check if the function registration was a success...
-		//bool btest = g_papyrus->Register(RegisterFuncs);
-		//
-		//if (btest) {
-		//	_MESSAGE("Papyrus functions registered");
-		//}
+		// Check if the function registration was a success...
+		bool btest = g_papyrus->Register(PapyrusIni::RegisterFuncs);
+		
+		if (btest) {
+			_MESSAGE("Papyrus functions registered");
+		}
 
 		return true;
 	}

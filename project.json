@@ -1,8 +1,8 @@
 {
 	"identifier": "PapyrusIni",
 	"dll": "PapyrusIni",
-	"name": "PapyrusIni",
+	"name": "Papyrus Ini",
 	"version": "1.0.0",
-	"output": "PapyrusIni (dev)",
-	"esp": "PapyrusIni.esp"
+	"output": "Papyrus Ini (dev)",
+	"esp": "Papyrus Ini.esp"
 }

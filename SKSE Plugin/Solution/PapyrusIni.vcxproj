@@ -255,8 +255,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PapyrusIni.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="PapyrusIni.h" />
     <ClInclude Include="SkyrimEdition.h" />
   </ItemGroup>
   <Choose>
