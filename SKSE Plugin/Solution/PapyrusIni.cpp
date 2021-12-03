@@ -7,6 +7,7 @@
 #include <ShlObj.h>
 #include <WinBase.h>
 
+#define DEBUG 0
 #define BUFFER_SIZE 128
 #define PAPYRUS_FUNCTION StaticFunctionTag* base
 #define INI_PARAMS PAPYRUS_FUNCTION, BSFixedString file, BSFixedString category, BSFixedString name
@@ -18,8 +19,10 @@ namespace PapyrusIni {
 
 
 	void WriteString(std::string& fileName, std::string& category, std::string& name, std::string& value) {
+#if DEBUG
 		auto debug = std::string("WriteString") + ":" + fileName + "," + category + "," + name + " value=" + value;
 		_MESSAGE(debug.c_str());
+#endif
 		WritePrivateProfileStringA(category.c_str(), name.c_str(), value.c_str(), fileName.c_str());
 	}
 
@@ -39,15 +42,19 @@ namespace PapyrusIni {
 		char inBuf[BUFFER_SIZE];
 		GetPrivateProfileStringA(category.c_str(), name.c_str(), def.c_str(), inBuf, BUFFER_SIZE, fileName.c_str());
 		auto result = std::string(inBuf);
+#if DEBUG
 		auto debug = std::string("ReadString") + ":" + fileName + "," + category + "," + name + " result=" + result;
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
 	SInt32 ReadInt(std::string& fileName, std::string& category, std::string& name, SInt32 def) {
 		auto result = GetPrivateProfileIntA(category.c_str(), name.c_str(), def, fileName.c_str());
+#if DEBUG
 		auto debug = std::string("ReadInt") + ":" + fileName + "," + category + "," + name + " result=" + std::to_string(result);
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
@@ -70,8 +77,10 @@ namespace PapyrusIni {
 		auto zero = ReadString(fileName, category, name, std::string("zero"));
 		auto one = ReadString(fileName, category, name, std::string("one"));
 		auto result = (zero.compare(std::string("zero")) != 0) || (one.compare(std::string("one")) != 0);
+#if DEBUG
 		auto debug = std::string("HasString") + ":" + fileName + "," + category + "," + name + " zero=" + zero + " one=" + one + " result=" + std::to_string(result);
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
@@ -79,8 +88,10 @@ namespace PapyrusIni {
 		auto zero = ReadInt(fileName, category, name, 0);
 		auto one = ReadInt(fileName, category, name, 1);
 		auto result = (zero != 0) || (one != 1);
+#if DEBUG
 		auto debug = std::string("HasInt") + ":" + fileName + "," + category + "," + name + " zero=" + std::to_string(zero) + " one=" + std::to_string(one) + " result=" + std::to_string(result);
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
@@ -88,8 +99,10 @@ namespace PapyrusIni {
 		auto zero = ReadFloat(fileName, category, name, 0.0);
 		auto one = ReadFloat(fileName, category, name, 1.0);
 		auto result = (zero != 0.0) || (one != 1.0);
+#if DEBUG
 		auto debug = std::string("HasFloat") + ":" + fileName + "," + category + "," + name + " zero=" + std::to_string(zero) + " one=" + std::to_string(one) + " result=" + std::to_string(result);
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
@@ -97,8 +110,10 @@ namespace PapyrusIni {
 		bool zero = ReadBool(fileName, category, name, false);
 		bool one = ReadBool(fileName, category, name, true);
 		auto result = (zero != false) || (one != true);
+#if DEBUG
 		auto debug = std::string("HasBool") + ":" + fileName + "," + category + "," + name + " zero=" + std::to_string(zero) + " one=" + std::to_string(one) + " result=" + std::to_string(result);
 		_MESSAGE(debug.c_str());
+#endif
 		return result;
 	}
 
