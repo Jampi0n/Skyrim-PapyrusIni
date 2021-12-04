@@ -152,7 +152,7 @@ namespace PapyrusIni {
 		return ReadBool(PAPYRUS_ARGS_EX_USER, ReadBool(PAPYRUS_ARGS_EX_DEFAULT, def));
 	}
 	BSFixedString Papyrus_ReadStringEx(INI_PARAMS_EX, BSFixedString def) {
-		auto stringDef = std::string(def);
+		auto stringDef = std::string(def.data);
 		if (!HasString(PAPYRUS_ARGS_EX_DEFAULT)) {
 			WriteString(PAPYRUS_ARGS_EX_DEFAULT, stringDef);
 		}
