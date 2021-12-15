@@ -7,6 +7,8 @@
 #include "skse64/PapyrusNativeFunctions.h"
 #endif
 
+#define PLUGIN_VERSION 1
+
 namespace PapyrusIni
 {
 	bool RegisterFuncs(VMClassRegistry* registry);

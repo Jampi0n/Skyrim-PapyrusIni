@@ -21,6 +21,8 @@ scriptname PapyrusIni
 ; HasType:
 ;   returns if the ini has the value
 
+Int Function GetPluginVersion() Global Native
+
 Function WriteInt(string file, string category, string name, int value) Global Native
 Int Function ReadInt(string file, string category, string name, int default) Global Native
 Int Function ReadIntEx(string fileDefault, string fileUser, string category, string name, int default) Global Native

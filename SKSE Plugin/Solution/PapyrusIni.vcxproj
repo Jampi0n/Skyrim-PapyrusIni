@@ -259,6 +259,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PapyrusIni.h" />
+    <ClInclude Include="SimpleIni.h" />
     <ClInclude Include="SkyrimEdition.h" />
   </ItemGroup>
   <Choose>
