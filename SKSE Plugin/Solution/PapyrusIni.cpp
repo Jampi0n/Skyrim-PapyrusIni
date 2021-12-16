@@ -1,14 +1,12 @@
 #include "PapyrusIni.h"
 
-#include <vector>
 #include <cmath>
 #include <stdexcept>
 #include <unordered_map>
-#include <tuple>
 #include <memory>
 #include <iostream>
 #include <iomanip>
-#include <time.h>
+#include <ctime>
 #include <sstream>
 
 #include <ShlObj.h>
@@ -28,7 +26,8 @@ namespace PapyrusIni {
 	private:
 		static void WriteLine(std::string str) {
 			auto t = std::time(nullptr);
-			auto tm = *std::localtime(&t);
+			std::tm tm;
+			localtime_s(&tm, &t);
 
 			std::ostringstream oss;
 			oss << std::put_time(&tm, "%d/%m/%Y - %I:%M:%S%p");
@@ -73,7 +72,7 @@ namespace PapyrusIni {
 			SI_Error rc = ini.LoadFile(path.c_str());
 		}
 
-		std::string& Read(std::string section, std::string key, std::string& def) {
+		std::string Read(std::string section, std::string key, std::string& def) {
 			auto value = std::string(ini.GetValue(section.c_str(), key.c_str(), def.c_str()));
 			Logger::DebugMsg("Read Cache: " + IniAccess(path, section, key) + " value=" + value);
 			return value;
@@ -157,60 +156,52 @@ namespace PapyrusIni {
 		IniHandler::GetInstance().CloseIniCache(fileName);
 	}
 
-	void WriteString(std::string& fileName, std::string& category, std::string& name, std::string& value, bool cache) {
+	void WriteString(std::string& fileName, std::string& section, std::string& key, std::string& value, bool cache) {
 		// write to cache, creating one if it does not exist
 		if (cache) {
-			IniHandler::GetInstance().GetIniCache(fileName).Write(category, name, value);
+			IniHandler::GetInstance().GetIniCache(fileName).Write(section, key, value);
 		}
 		else {
 			// write to cache if it exists, but do not create a new one
 			if (IniHandler::GetInstance().HasIniCache(fileName)) {
-				IniHandler::GetInstance().GetIniCache(fileName).Write(category, name, value);
+				IniHandler::GetInstance().GetIniCache(fileName).Write(section, key, value);
 			}
 			// write without cache
-			WritePrivateProfileStringA(category.c_str(), name.c_str(), value.c_str(), fileName.c_str());
+			WritePrivateProfileStringA(section.c_str(), key.c_str(), value.c_str(), fileName.c_str());
 		}
 	}
 
-	void WriteInt(std::string& fileName, std::string& category, std::string& name, SInt32 value, bool cache) {
-		WriteString(fileName, category, name, std::to_string(value), cache);
-	}
-
-	void WriteBool(std::string& fileName, std::string& category, std::string& name, bool value, bool cache) {
-		WriteString(fileName, category, name, std::string(value ? "1" : "0"), cache);
-	}
-
-	void WriteFloat(std::string& fileName, std::string& category, std::string& name, float value, bool cache) {
-		WriteString(fileName, category, name, std::to_string(value), cache);
-	}
+	void WriteInt(std::string& fileName, std::string& section, std::string& key, SInt32 value, bool cache) { WriteString(fileName, section, key, std::to_string(value), cache); }
+	void WriteBool(std::string& fileName, std::string& section, std::string& key, bool value, bool cache) { WriteString(fileName, section, key, std::string(value ? "1" : "0"), cache); }
+	void WriteFloat(std::string& fileName, std::string& section, std::string& key, float value, bool cache) { WriteString(fileName, section, key, std::to_string(value), cache); }
 
 	void CloseReader(std::string& fileName) {
 		IniHandler::GetInstance().CloseIniCache(fileName);
 	}
 
-	std::string ReadString(std::string& fileName, std::string& category, std::string& name, std::string& def, bool cache) {
+	std::string ReadString(std::string& fileName, std::string& section, std::string& key, std::string& def, bool cache) {
 		std::string value;
 		// read from cache, creating one if it does not exist
 		if (cache) {
-			value = IniHandler::GetInstance().GetIniCache(fileName).Read(category, name, def);
+			value = IniHandler::GetInstance().GetIniCache(fileName).Read(section, key, def);
 		}
 		else {
 			// read from cache if it exists, but do not create a new one
 			if (IniHandler::GetInstance().HasIniCache(fileName)) {
-				return ReadString(fileName, category, name, def, true);
+				return ReadString(fileName, section, key, def, true);
 			}
 			// read without cache
 			char inBuf[BUFFER_SIZE];
-			GetPrivateProfileStringA(category.c_str(), name.c_str(), def.c_str(), inBuf, BUFFER_SIZE, fileName.c_str());
+			GetPrivateProfileStringA(section.c_str(), key.c_str(), def.c_str(), inBuf, BUFFER_SIZE, fileName.c_str());
 			value = std::string(inBuf);
 		}
 		return value;
 	}
 
-	SInt32 ReadInt(std::string& fileName, std::string& category, std::string& name, SInt32 def, bool cache) {
+	SInt32 ReadInt(std::string& fileName, std::string& section, std::string& key, SInt32 def, bool cache) {
 		SInt32 value;
 		try {
-			value = std::stoi(ReadString(fileName, category, name, std::to_string(def), cache).c_str());
+			value = std::stoi(ReadString(fileName, section, key, std::to_string(def), cache).c_str());
 		}
 		catch (std::invalid_argument) {
 			value = def;
@@ -218,10 +209,10 @@ namespace PapyrusIni {
 		return value;
 	}
 
-	float ReadFloat(std::string& fileName, std::string& category, std::string& name, float def, bool cache) {
+	float ReadFloat(std::string& fileName, std::string& section, std::string& key, float def, bool cache) {
 		float value = def;
 		try {
-			value = std::stof(ReadString(fileName, category, name, std::to_string(def), cache).c_str());
+			value = std::stof(ReadString(fileName, section, key, std::to_string(def), cache).c_str());
 		}
 		catch (std::invalid_argument) {
 			value = def;
@@ -229,34 +220,32 @@ namespace PapyrusIni {
 		return value;
 	}
 
-	bool ReadBool(std::string& fileName, std::string& category, std::string& name, bool def, bool cache) {
-		return ReadInt(fileName, category, name, def ? 1 : 0, cache) == 1;
-	}
+	bool ReadBool(std::string& fileName, std::string& section, std::string& key, bool def, bool cache) { return ReadInt(fileName, section, key, def ? 1 : 0, cache) == 1; }
 
-	bool HasString(std::string& fileName, std::string& category, std::string& name, bool cache) {
-		auto zero = ReadString(fileName, category, name, std::string("zero"), cache);
-		auto one = ReadString(fileName, category, name, std::string("one"), cache);
+	bool HasString(std::string& fileName, std::string& section, std::string& key, bool cache) {
+		auto zero = ReadString(fileName, section, key, std::string("zero"), cache);
+		auto one = ReadString(fileName, section, key, std::string("one"), cache);
 		auto result = (zero.compare(std::string("zero")) != 0) || (one.compare(std::string("one")) != 0);
 		return result;
 	}
 
-	bool HasInt(std::string& fileName, std::string& category, std::string& name, bool cache) {
-		auto zero = ReadInt(fileName, category, name, 0, cache);
-		auto one = ReadInt(fileName, category, name, 1, cache);
+	bool HasInt(std::string& fileName, std::string& section, std::string& key, bool cache) {
+		auto zero = ReadInt(fileName, section, key, 0, cache);
+		auto one = ReadInt(fileName, section, key, 1, cache);
 		auto result = (zero != 0) || (one != 1);
 		return result;
 	}
 
-	bool HasFloat(std::string& fileName, std::string& category, std::string& name, bool cache) {
-		auto zero = ReadFloat(fileName, category, name, 0.0, cache);
-		auto one = ReadFloat(fileName, category, name, 1.0, cache);
+	bool HasFloat(std::string& fileName, std::string& section, std::string& key, bool cache) {
+		auto zero = ReadFloat(fileName, section, key, 0.0, cache);
+		auto one = ReadFloat(fileName, section, key, 1.0, cache);
 		auto result = (zero != 0.0) || (one != 1.0);
 		return result;
 	}
 
-	bool HasBool(std::string& fileName, std::string& category, std::string& name, bool cache) {
-		bool zero = ReadBool(fileName, category, name, false, cache);
-		bool one = ReadBool(fileName, category, name, true, cache);
+	bool HasBool(std::string& fileName, std::string& section, std::string& key, bool cache) {
+		bool zero = ReadBool(fileName, section, key, false, cache);
+		bool one = ReadBool(fileName, section, key, true, cache);
 		auto result = (zero != false) || (one != true);
 		return result;
 	}
@@ -265,13 +254,13 @@ namespace PapyrusIni {
 	}
 
 	BSFixedString ToPapyrusString(std::string in) {
-		return ToPapyrusString(in.c_str());
+		return BSFixedString(in.c_str());
 	}
-	
+
 	std::string ToStdString(BSFixedString in) {
 		return std::string(in.data);
 	}
-	
+
 	void Buffered_CreateBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
 		CreateCache(ToStdString(file));
 	}
@@ -285,7 +274,6 @@ namespace PapyrusIni {
 	SInt32 Papyrus_GetPluginVersion(StaticFunctionTag* base) {
 		return PLUGIN_VERSION;
 	}
-
 
 #define DEFINE_FUNCTIONS_PREFIX(Prefix, Type, cType, cache, in, out) \
 void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType value) { Write##Type(ToStdString(file), ToStdString(section), ToStdString(key), in(value), cache);} \
@@ -303,10 +291,13 @@ cType Prefix##_Read##Type##Ex(PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFix
 DEFINE_FUNCTIONS_PREFIX(Papyrus, Type, cType, false, in, out) \
 DEFINE_FUNCTIONS_PREFIX(Buffered, Type, cType, true, in, out)
 
-DEFINE_FUNCTIONS(Int, SInt32, , )
-DEFINE_FUNCTIONS(Float, float, , )
-DEFINE_FUNCTIONS(Bool, bool, , )
+#define DEFINE_ALL \
+DEFINE_FUNCTIONS(Int, SInt32, , )\
+DEFINE_FUNCTIONS(Float, float, , )\
+DEFINE_FUNCTIONS(Bool, bool, , )\
 DEFINE_FUNCTIONS(String, BSFixedString, ToStdString, ToPapyrusString)
+
+	DEFINE_ALL
 
 #define REGISTER_WRITE(Prefix, Type, cType) registry->RegisterFunction( \
 new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "PapyrusIni", Papyrus##_Write##Type, registry)); \
@@ -343,7 +334,7 @@ REGISTER_HAS(Prefix, Type, cType);\
 REGISTER_READ_EX(Prefix, Type, cType)
 
 
-	bool RegisterFuncs(VMClassRegistry* registry) {
+		bool RegisterFuncs(VMClassRegistry* registry) {
 
 		registry->RegisterFunction(
 			new NativeFunction0 <StaticFunctionTag, SInt32>("GetPluginVersion", "PapyrusIni", Papyrus_GetPluginVersion, registry));

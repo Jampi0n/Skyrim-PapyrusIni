@@ -13,3 +13,4 @@
 
 #define REGISTER_READ_EX(Prefix, Type, cType) registry->RegisterFunction( new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "PapyrusIni", Papyrus##_Read##Type##Ex, registry)); registry->SetFunctionFlags("PapyrusIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait); registry->RegisterFunction( new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "BufferedIni", Buffered##_Read##Type##Ex, registry)); registry->SetFunctionFlags("BufferedIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait)
 
+#define DEFINE_ALL DEFINE_FUNCTIONS(Int, SInt32, , )DEFINE_FUNCTIONS(Float, float, , )DEFINE_FUNCTIONS(Bool, bool, , )DEFINE_FUNCTIONS(String, BSFixedString, ToStdString, ToPapyrusString)

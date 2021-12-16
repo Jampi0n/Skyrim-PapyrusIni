@@ -1,146 +1,44 @@
 scriptname BufferedIni
 
-; Buffered Ini provides the same functions as PapyrusIni, but uses a buffer to reduce the number of file accesses.
-; Buffered ini operations should be used when multiple write or read operations are used in quick succession.
-; On the first operation a buffer will be created.
-; Buffered ini operations will then interact with the buffer instead of the file.
-; After the last operation, the buffer needs to be written, so that the buffered writes are forwarded to the ini file.
+; When to use Buffered ini operations compared to normal ini operations?
 
-; Performance Benchmarks:
-; Performance depends on the size of the file, the number of sections and the number of keys in the section which is used in the operation.
+;   Buffered read operations always make sense, if you read at least 5 to 10 settings before closing the game (or using CloseBuffer).
+;   The file will only be read once and future read operations will use the buffer.
+;   Buffered reads are so fast, that you do not need to store the values in papyrus. You can simply read them from the buffer whenever you need them.
 
-; This test was performed, with 67 sections, each having 30 keys:
+;   Buffered write operations only make sense, if you write at least 5 to 10 settings at the same time.
+;   Since the game could be closed at any moment, the buffer needs to be written to the file after every sequence of buffered writes (using WriteBuffer or CloseBuffer).
+;   For smaller sequences or individual writes you should use non-buffered writes instead.
+;   You can combine buffered writes and non-buffered writes. When writing at least 5 to 10 settings at the same time use buffered writes, otherwise use non-buffered ones.
 
-; This test was performed, with 1 section, each having 1 key:
-; Repeat: 1000
-; Operations                                |    seconds
-; 1 writes                                  |       0.70
-; 1 buffered writes + 1 close buffer        |       1.12
-; 1 reads                                   |       0.28
-; 1 buffered reads + 1 close buffer         |       1.13
+; Outside changes to the ini file:
 
-; This test was performed, with 2 sections, each having 2 keys:
-; Repeat: 250
-; Operations                                |    seconds
-; 4 writes                                  |       5.33
-; 4 buffered writes + 1 close buffer        |       0.38
-; 4 reads                                   |       0.27
-; 4 buffered reads + 1 close buffer         |       0.27
+;   Outside changes are any changes to the ini file not performed by this library. That includes editing the ini, deleting it or creating it (If the ini did not exist while the buffer was created, the buffer will still exist, but will not contain any values.).
+;   While a buffer exists, all reads (both buffered and non-buffered reads) and buffered writes interact with the buffer instead of the file.
+;   For reads, this means outside changes are not visible and the buffer contains the old values from when the buffer was created.
+;   Writing the buffer will override the file with the data from the buffer, overriding any outside changes.
+;
+;   If outside changes need to be possible, the buffer should be closed after every sequence of buffered reads or buffered writes.
+;   In that case, buffered reads should also only be used, if you read at least 5 to 10 settings at the same time.
 
 
-; This test was performed, with 4 sections, each having 5 keys:
-; Repeat: 50
-; Operations                                |    seconds
-; 20 writes                                 |       5.03
-; 20 buffered writes + 1 close buffer       |       0.12
-; 20 reads                                  |       0.22
-; 20 buffered reads + 1 close buffer        |       0.07
-
-; This test was performed, with 10 sections, each having 10 keys:
-; Repeat: 10
-; Operations                                |    seconds
-; 100 writes                                |       6.09
-; 100 buffered writes + 1 close buffer      |       0.06
-; 100 reads                                 |       0.28
-; 100 buffered reads + 1 close buffer       |       0.05
-
-; This test was performed, with 10 sections, each having 25 keys:
-; Repeat: 4
-; Operations                                |    seconds
-; 250 writes                                |       6.45
-; 250 buffered writes + 1 close buffer      |       0.07
-; 250 reads                                 |       0.27
-; 250 buffered reads + 1 close buffer       |       0.05
-
-; This test was performed, with 25 sections, each having 40 keys:
-; Repeat: 1
-; Operations                                |    seconds
-; 1000 writes                               |       7.05
-; 1000 buffered writes + 1 close buffer     |       0.05
-; 1000 reads                                |       0.25
-; 1000 buffered reads + 1 close buffer      |       0.08
-
-; This test was performed, with 75 sections, each having 100 keys:
-; Repeat: 1
-; Operations                                |    seconds
-; 1000 writes                               |      53.14
-; 1000 buffered writes + 1 close buffer     |       0.41
-; 1000 reads                                |       3.04
-; 1000 buffered reads + 1 close buffer      |       0.31
-
-; Conclusion:
-
-
-; Since buffered ini operations interact with the buffer rather then the file, any changes to the file while the buffer is active will not be seen and will be overridden once the buffer is written back to the file.
-
-; Writes the buffered write operations to the file, but keeps the buffer.
+; Writes the buffered write operations to the file, but keeps the buffer open.
 ; Should be used, if further buffered ini operations are possible, but not guaranteed.
 ; If further buffered ini operations are guaranteed, the buffer should be written after them.
+; This function should be used sparingly. If you find yourself using this function after every other write operation, consider using non-buffered writes.
 Function WriteBuffer(string file) Global Native
 
 ; Writes the buffered write operations to the file and closes the buffer.
-; Closing the buffer frees memory.
-; Closing the buffer allows the ini file to be changed and the changes will be visible the next time a buffer is created for it.
+; Closing the buffer allows the ini file to be changed from the outside and the changes will be visible the next time a buffer is created for it.
 ; Closing the buffer requires creating a new buffer the next time a buffered ini operation is used on the file.
-; Should be used, if no further buffered ini operations are expected.
+; Should only be used, if no further buffered ini operations are expected or if outside changes to the ini file need to be allowed.
+; This function should be used sparingly. If you find yourself using this function after every other write operation, consider using non-buffered writes.
 Function CloseBuffer(string file) Global Native
 
 ; Creates a buffer for the file. In general, buffers are automatically created when needed.
 ; However this function can be used to create a buffer in advance to avoid buffer creation at a more performance critical moment.
+; This is only needed, if you are dealing with very large ini files (thousands of entries).
 Function CreateBuffer(string file) Global Native
-
-; Combining buffered and non-buffered is possible.
-; While a buffer exists, non-buffered ini operations will do the followng:
-; Read Operation: Reads the value from the buffer instead.
-; Write Operation: Writes the value to the file and updates the buffer, so that the buffer will not override it once it is written.
-
-
-; Example Usages:
-; 1. Read all MCM settings on startup from file. Write MCM settings to file as they are modified.
-;       Use buffered read operations to read all settings.
-;       Use CloseBuffer once you are done.
-;       Use non-buffered writes to save MCM settings as they are modified.
-;       Settings are changed one by one, so buffered writes are not required.
-;   
-;       Advantages:
-;           Everything is automatic.
-;           Changes can be observed immediately in the ini file.
-;           Ini file only contains changes -> can use default/custom ini setup.
-;
-;       Disadvantages:
-;           Outside changes to the ini file are only applied once reloading a save.
-;
-;       Notes:
-;           One could add a Reload button to the MCM to manually apply outside changes.
-;           This can be implemented by using CloseBuffer in order to force the creation of a new buffer that contains the changes.
-;
-; 2. Read all MCM settings on startup from file. Write MCM settings to file when closing the MCM.
-;       Use buffered read operations to read all settings.
-;       Do not close the buffer.
-;       Use buffered writes to save MCM settings as they are changed.
-;       Use CloseBuffer once you are done to apply the buffered writes.
-;
-;       Advantages:
-;           Everything is automatic.
-;
-;       Disadvantages:
-;           Outside changes to the ini file are only applied once reloading a save.
-;           Writing all settings everytime the MCM is closed can be slow, if a lot of settings are used.
-;
-;       Notes:
-;           Using WriteBuffer instead of CloseBuffer would mean outside changes are overridden by the buffer as it is never closed.
-;           Additionally, the buffer would be written even if no settings are changed.
-;           With CloseBuffer, the buffer only exists after changing at least one settings, so only in then it will be written.
-;           
-; 3. Read/write multiple settings when importing/exporting MCM settings via buttons in the MCM.
-;       Use buffered read and write operations for import and export.
-;       Use CloseBuffer once import/export is done. This allows the player to manually edit the ini file before and after import/export.
-;
-;       Advantages:
-;           Player can edit/replace/delete/create the ini file at any moment, as the file is only buffered during export and import.
-;
-;       Disadvantages:
-;           Import/export needs to be done manually by the player.
 
 Function WriteInt(string file, string section, string key, int value) Global Native
 Int Function ReadInt(string file, string section, string key, int default) Global Native
