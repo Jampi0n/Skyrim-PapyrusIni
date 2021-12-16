@@ -36,5 +36,6 @@
   <ItemGroup>
     <None Include="exportsLE.def" />
     <None Include="exportsSE.def" />
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

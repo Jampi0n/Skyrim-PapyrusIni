@@ -1,0 +1,15 @@
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define DEFINE_FUNCTIONS(Type, cType, in, out) DEFINE_FUNCTIONS_PREFIX(Papyrus, Type, cType, false, in, out) DEFINE_FUNCTIONS_PREFIX(Buffered, Type, cType, true, in, out)
+#define PAPYRUS_FUNCTION
+#define REGISTER_ALL(Prefix, Type, cType) REGISTER_WRITE(Prefix, Type, cType); REGISTER_READ(Prefix, Type, cType);REGISTER_HAS(Prefix, Type, cType);REGISTER_READ_EX(Prefix, Type, cType)
+
+#define REGISTER_WRITE(Prefix, Type, cType) registry->RegisterFunction( new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "PapyrusIni", Papyrus##_Write##Type, registry)); registry->SetFunctionFlags("PapyrusIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait); registry->RegisterFunction( new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "BufferedIni", Buffered##_Write##Type, registry)); registry->SetFunctionFlags("BufferedIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_READ(Prefix, Type, cType) registry->RegisterFunction( new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "PapyrusIni", Papyrus##_Read##Type, registry)); registry->SetFunctionFlags("PapyrusIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait); registry->RegisterFunction( new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "BufferedIni", Buffered##_Read##Type, registry)); registry->SetFunctionFlags("BufferedIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_HAS(Prefix, Type, cType) registry->RegisterFunction( new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "PapyrusIni", Papyrus##_Has##Type, registry)); registry->SetFunctionFlags("PapyrusIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait); registry->RegisterFunction( new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "BufferedIni", Buffered##_Has##Type, registry)); registry->SetFunctionFlags("BufferedIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_READ_EX(Prefix, Type, cType) registry->RegisterFunction( new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "PapyrusIni", Papyrus##_Read##Type##Ex, registry)); registry->SetFunctionFlags("PapyrusIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait); registry->RegisterFunction( new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "BufferedIni", Buffered##_Read##Type##Ex, registry)); registry->SetFunctionFlags("BufferedIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait)
+

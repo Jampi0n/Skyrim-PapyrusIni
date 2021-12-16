@@ -6,30 +6,46 @@
 #include <unordered_map>
 #include <tuple>
 #include <memory>
+#include <iostream>
+#include <iomanip>
+#include <time.h>
+#include <sstream>
 
 #include <ShlObj.h>
 #include <WinBase.h>
 #include "SimpleIni.h"
 
+
 #define DEBUG 0
-#define BUFFER_SIZE 128
 #define PAPYRUS_FUNCTION StaticFunctionTag* base
-#define INI_PARAMS PAPYRUS_FUNCTION, BSFixedString file, BSFixedString category, BSFixedString name
-#define INI_PARAMS_EX PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFixedString fileUser, BSFixedString category, BSFixedString name
-#define PAPYRUS_ARGS_FILE_NAME "Data\\" + std::string(file.data)
-#define PAPYRUS_ARGS "Data\\" + std::string(file.data), std::string(category.data), std::string(name.data)
-#define PAPYRUS_ARGS_EX_DEFAULT "Data\\" + std::string(fileDefault.data), std::string(category.data), std::string(name.data)
-#define PAPYRUS_ARGS_EX_USER "Data\\" + std::string(fileUser.data), std::string(category.data), std::string(name.data)
 
-#define USE_CACHE true
-
-#define SECTION_KEY_SEP "::"
+constexpr auto BUFFER_SIZE = 128;
+constexpr auto SECTION_KEY_SEP = "::";
 
 namespace PapyrusIni {
 
-	void Log(std::string& s) {
-		//_MESSAGE(s.c_str());
-	}
+	class Logger {
+	private:
+		static void WriteLine(std::string str) {
+			auto t = std::time(nullptr);
+			auto tm = *std::localtime(&t);
+
+			std::ostringstream oss;
+			oss << std::put_time(&tm, "%d/%m/%Y - %I:%M:%S%p");
+			auto time = oss.str();
+
+			_MESSAGE(("[" + time + "] " + str).c_str());
+		}
+	public:
+		static void Msg(std::string str) {
+			WriteLine(str);
+		}
+		static void DebugMsg(std::string str) {
+#if DEBUG > 0
+			WriteLine(str);
+#endif
+		}
+	};
 
 	std::string IniAccess(std::string& path, std::string& section, std::string& key) {
 		return "{" + path + "}[" + section + "]<" + key + ">";
@@ -39,6 +55,7 @@ namespace PapyrusIni {
 	private:
 		std::string path;
 		CSimpleIniA ini;
+		bool modified = false;
 	public:
 		IniCache() = delete;
 		IniCache(const IniCache&) = delete;
@@ -52,24 +69,27 @@ namespace PapyrusIni {
 		}
 
 		void Load() {
-			Log("Load Cache: {" + path + "}");
+			Logger::Msg("Load Cache: {" + path + "}");
 			SI_Error rc = ini.LoadFile(path.c_str());
 		}
 
 		std::string& Read(std::string section, std::string key, std::string& def) {
 			auto value = std::string(ini.GetValue(section.c_str(), key.c_str(), def.c_str()));
-			Log("Read Cache: " + IniAccess(path, section, key) + " value=" + value);
+			Logger::DebugMsg("Read Cache: " + IniAccess(path, section, key) + " value=" + value);
 			return value;
 		}
 
 		void Write(std::string& section, std::string& key, std::string& value) {
-			Log("Write Cache: " + IniAccess(path, section, key) + " value=" + value);
+			Logger::DebugMsg("Write Cache: " + IniAccess(path, section, key) + " value=" + value);
+			modified = true;
 			ini.SetValue(section.c_str(), key.c_str(), value.c_str());
 		}
 
 		void Save() {
-			Log("Save Cache: {" + path + "}");
-			ini.SaveFile(path.c_str());
+			Logger::Msg("Save Cache: {" + path + "}");
+			if (modified) {
+				ini.SaveFile(path.c_str());
+			}
 		}
 	};
 
@@ -99,9 +119,9 @@ namespace PapyrusIni {
 		/// <param name="path">Path to the .ini file.</param>
 		/// <returns>A IniCache containing all values of the .ini file.</returns>
 		IniCache& GetIniCache(std::string path) {
-			Log("GetIniCache: {" + path + "}");
+			Logger::DebugMsg("GetIniCache: {" + path + "}");
 			if (fileReaders.find(path) == fileReaders.end()) {
-				Log("GetIniCache: {" + path + "}->new");
+				Logger::DebugMsg("GetIniCache: {" + path + "}->new");
 				fileReaders.emplace(path, std::make_unique<IniCache>(path));
 			}
 			return *fileReaders.at(path).get();
@@ -112,9 +132,9 @@ namespace PapyrusIni {
 		/// </summary>
 		/// <param name="path">Path to the .ini file.</param>
 		void CloseIniCache(std::string path) {
-			Log("CloseIniCache: {" + path + "}");
+			Logger::DebugMsg("CloseIniCache: {" + path + "}");
 			if (fileReaders.find(path) != fileReaders.end()) {
-				Log("CloseIniCache: {" + path + "}->new");
+				Logger::DebugMsg("CloseIniCache: {" + path + "}->new");
 				fileReaders[path].get()->Save();
 				fileReaders.erase(path);
 			}
@@ -240,114 +260,95 @@ namespace PapyrusIni {
 		auto result = (zero != false) || (one != true);
 		return result;
 	}
-
-	void Papyrus_WriteInt(INI_PARAMS, SInt32 value) { WriteInt(PAPYRUS_ARGS, value, false); }
-	void Papyrus_WriteFloat(INI_PARAMS, float value) { WriteFloat(PAPYRUS_ARGS, value, false); }
-	void Papyrus_WriteBool(INI_PARAMS, bool value) { WriteBool(PAPYRUS_ARGS, value, false); }
-	void Papyrus_WriteString(INI_PARAMS, BSFixedString value) { WriteString(PAPYRUS_ARGS, std::string(value.data), false); }
-
-	SInt32 Papyrus_ReadInt(INI_PARAMS, SInt32 def) { return ReadInt(PAPYRUS_ARGS, def, false); }
-	float Papyrus_ReadFloat(INI_PARAMS, float def) { return ReadFloat(PAPYRUS_ARGS, def, false); }
-	bool Papyrus_ReadBool(INI_PARAMS, bool def) { return ReadBool(PAPYRUS_ARGS, def, false); }
-	BSFixedString Papyrus_ReadString(INI_PARAMS, BSFixedString def) { return BSFixedString(ReadString(PAPYRUS_ARGS, std::string(def.data), false).c_str()); }
-
-	bool Papyrus_HasInt(INI_PARAMS) { return HasInt(PAPYRUS_ARGS, false); }
-	bool Papyrus_HasFloat(INI_PARAMS) { return HasFloat(PAPYRUS_ARGS, false); }
-	bool Papyrus_HasBool(INI_PARAMS) { return HasBool(PAPYRUS_ARGS, false); }
-	bool Papyrus_HasString(INI_PARAMS) { return HasString(PAPYRUS_ARGS, false); }
-
-	SInt32 Papyrus_ReadIntEx(INI_PARAMS_EX, SInt32 def) {
-		if (!HasInt(PAPYRUS_ARGS_EX_DEFAULT, false)) {
-			WriteInt(PAPYRUS_ARGS_EX_DEFAULT, def, false);
-		}
-		return ReadInt(PAPYRUS_ARGS_EX_USER, ReadInt(PAPYRUS_ARGS_EX_DEFAULT, def, false), false);
-	}
-	float Papyrus_ReadFloatEx(INI_PARAMS_EX, float def) {
-		if (!HasFloat(PAPYRUS_ARGS_EX_DEFAULT, false)) {
-			WriteFloat(PAPYRUS_ARGS_EX_DEFAULT, def, false);
-		}
-		return ReadFloat(PAPYRUS_ARGS_EX_USER, ReadFloat(PAPYRUS_ARGS_EX_DEFAULT, def, false), false);
-	}
-	bool Papyrus_ReadBoolEx(INI_PARAMS_EX, bool def) {
-		if (!HasBool(PAPYRUS_ARGS_EX_DEFAULT, false)) {
-			WriteBool(PAPYRUS_ARGS_EX_DEFAULT, def, false);
-		}
-		return ReadBool(PAPYRUS_ARGS_EX_USER, ReadBool(PAPYRUS_ARGS_EX_DEFAULT, def, false), false);
-	}
-	BSFixedString Papyrus_ReadStringEx(INI_PARAMS_EX, BSFixedString def) {
-		auto stringDef = std::string(def.data);
-		if (!HasString(PAPYRUS_ARGS_EX_DEFAULT, false)) {
-			WriteString(PAPYRUS_ARGS_EX_DEFAULT, stringDef, false);
-		}
-		return BSFixedString(ReadString(PAPYRUS_ARGS_EX_USER, ReadString(PAPYRUS_ARGS_EX_DEFAULT, stringDef, false), false).c_str());
+	BSFixedString ToPapyrusString(char* in) {
+		return BSFixedString(in);
 	}
 
-	void Buffered_WriteInt(INI_PARAMS, SInt32 value) { WriteInt(PAPYRUS_ARGS, value, true); }
-	void Buffered_WriteFloat(INI_PARAMS, float value) { WriteFloat(PAPYRUS_ARGS, value, true); }
-	void Buffered_WriteBool(INI_PARAMS, bool value) { WriteBool(PAPYRUS_ARGS, value, true); }
-	void Buffered_WriteString(INI_PARAMS, BSFixedString value) { WriteString(PAPYRUS_ARGS, std::string(value.data), true); }
-
-	SInt32 Buffered_ReadInt(INI_PARAMS, SInt32 def) { return ReadInt(PAPYRUS_ARGS, def, true); }
-	float Buffered_ReadFloat(INI_PARAMS, float def) { return ReadFloat(PAPYRUS_ARGS, def, true); }
-	bool Buffered_ReadBool(INI_PARAMS, bool def) { return ReadBool(PAPYRUS_ARGS, def, true); }
-	BSFixedString Buffered_ReadString(INI_PARAMS, BSFixedString def) { return BSFixedString(ReadString(PAPYRUS_ARGS, std::string(def.data), true).c_str()); }
-
-	bool Buffered_HasInt(INI_PARAMS) { return HasInt(PAPYRUS_ARGS, true); }
-	bool Buffered_HasFloat(INI_PARAMS) { return HasFloat(PAPYRUS_ARGS, true); }
-	bool Buffered_HasBool(INI_PARAMS) { return HasBool(PAPYRUS_ARGS, true); }
-	bool Buffered_HasString(INI_PARAMS) { return HasString(PAPYRUS_ARGS, true); }
-
-	SInt32 Buffered_ReadIntEx(INI_PARAMS_EX, SInt32 def) {
-		if (!HasInt(PAPYRUS_ARGS_EX_DEFAULT, true)) {
-			WriteInt(PAPYRUS_ARGS_EX_DEFAULT, def, true);
-		}
-		return ReadInt(PAPYRUS_ARGS_EX_USER, ReadInt(PAPYRUS_ARGS_EX_DEFAULT, def, true), true);
-	}
-	float Buffered_ReadFloatEx(INI_PARAMS_EX, float def) {
-		if (!HasFloat(PAPYRUS_ARGS_EX_DEFAULT, true)) {
-			WriteFloat(PAPYRUS_ARGS_EX_DEFAULT, def, true);
-		}
-		return ReadFloat(PAPYRUS_ARGS_EX_USER, ReadFloat(PAPYRUS_ARGS_EX_DEFAULT, def, true), true);
-	}
-	bool Buffered_ReadBoolEx(INI_PARAMS_EX, bool def) {
-		if (!HasBool(PAPYRUS_ARGS_EX_DEFAULT, true)) {
-			WriteBool(PAPYRUS_ARGS_EX_DEFAULT, def, true);
-		}
-		return ReadBool(PAPYRUS_ARGS_EX_USER, ReadBool(PAPYRUS_ARGS_EX_DEFAULT, def, true), true);
-	}
-	BSFixedString Buffered_ReadStringEx(INI_PARAMS_EX, BSFixedString def) {
-		auto stringDef = std::string(def.data);
-		if (!HasString(PAPYRUS_ARGS_EX_DEFAULT, true)) {
-			WriteString(PAPYRUS_ARGS_EX_DEFAULT, stringDef, true);
-		}
-		return BSFixedString(ReadString(PAPYRUS_ARGS_EX_USER, ReadString(PAPYRUS_ARGS_EX_DEFAULT, stringDef, true), true).c_str());
+	BSFixedString ToPapyrusString(std::string in) {
+		return ToPapyrusString(in.c_str());
 	}
 	
-	void Buffered_CreateBuffer(StaticFunctionTag* base, BSFixedString file) {
-		CreateCache(PAPYRUS_ARGS_FILE_NAME);
+	std::string ToStdString(BSFixedString in) {
+		return std::string(in.data);
 	}
-	void Buffered_WriteBuffer(StaticFunctionTag* base, BSFixedString file) {
-		WriteCache(PAPYRUS_ARGS_FILE_NAME);
+	
+	void Buffered_CreateBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
+		CreateCache(ToStdString(file));
 	}
-	void Buffered_CloseBuffer(StaticFunctionTag* base, BSFixedString file) {
-		CloseCache(PAPYRUS_ARGS_FILE_NAME);
+	void Buffered_WriteBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
+		WriteCache(ToStdString(file));
+	}
+	void Buffered_CloseBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
+		CloseCache(ToStdString(file));
 	}
 
 	SInt32 Papyrus_GetPluginVersion(StaticFunctionTag* base) {
 		return PLUGIN_VERSION;
 	}
 
+
+#define DEFINE_FUNCTIONS_PREFIX(Prefix, Type, cType, cache, in, out) \
+void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType value) { Write##Type(ToStdString(file), ToStdString(section), ToStdString(key), in(value), cache);} \
+cType Prefix##_Read##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType def) { return out(Read##Type(ToStdString(file), ToStdString(section), ToStdString(key), in(def), cache));} \
+bool Prefix##_Has##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key) { return Has##Type(ToStdString(file), ToStdString(section), ToStdString(key), cache);} \
+\
+cType Prefix##_Read##Type##Ex(PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFixedString fileUser, BSFixedString section, BSFixedString key, cType def) { \
+	if(!Has##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), cache)) {\
+		Write##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), in(def), cache); \
+	} \
+	return out(Read##Type(ToStdString(fileUser), ToStdString(section), ToStdString(key), Read##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), in(def), cache), cache));\
+}
+
+#define DEFINE_FUNCTIONS(Type, cType, in, out) \
+DEFINE_FUNCTIONS_PREFIX(Papyrus, Type, cType, false, in, out) \
+DEFINE_FUNCTIONS_PREFIX(Buffered, Type, cType, true, in, out)
+
+DEFINE_FUNCTIONS(Int, SInt32, , )
+DEFINE_FUNCTIONS(Float, float, , )
+DEFINE_FUNCTIONS(Bool, bool, , )
+DEFINE_FUNCTIONS(String, BSFixedString, ToStdString, ToPapyrusString)
+
+#define REGISTER_WRITE(Prefix, Type, cType) registry->RegisterFunction( \
+new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "PapyrusIni", Papyrus##_Write##Type, registry)); \
+	registry->SetFunctionFlags("PapyrusIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
+registry->RegisterFunction( \
+new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "BufferedIni", Buffered##_Write##Type, registry)); \
+	registry->SetFunctionFlags("BufferedIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_READ(Prefix, Type, cType) registry->RegisterFunction( \
+new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "PapyrusIni", Papyrus##_Read##Type, registry)); \
+	registry->SetFunctionFlags("PapyrusIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
+registry->RegisterFunction( \
+new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "BufferedIni", Buffered##_Read##Type, registry)); \
+	registry->SetFunctionFlags("BufferedIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_HAS(Prefix, Type, cType) registry->RegisterFunction( \
+new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "PapyrusIni", Papyrus##_Has##Type, registry)); \
+	registry->SetFunctionFlags("PapyrusIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
+registry->RegisterFunction( \
+new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "BufferedIni", Buffered##_Has##Type, registry)); \
+	registry->SetFunctionFlags("BufferedIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_READ_EX(Prefix, Type, cType) registry->RegisterFunction( \
+new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "PapyrusIni", Papyrus##_Read##Type##Ex, registry)); \
+	registry->SetFunctionFlags("PapyrusIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait); \
+registry->RegisterFunction( \
+new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "BufferedIni", Buffered##_Read##Type##Ex, registry)); \
+	registry->SetFunctionFlags("BufferedIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait)
+
+#define REGISTER_ALL(Prefix, Type, cType) \
+REGISTER_WRITE(Prefix, Type, cType); \
+REGISTER_READ(Prefix, Type, cType);\
+REGISTER_HAS(Prefix, Type, cType);\
+REGISTER_READ_EX(Prefix, Type, cType)
+
+
 	bool RegisterFuncs(VMClassRegistry* registry) {
-
-		// Special Functions
-
-		// Non-Buffered
 
 		registry->RegisterFunction(
 			new NativeFunction0 <StaticFunctionTag, SInt32>("GetPluginVersion", "PapyrusIni", Papyrus_GetPluginVersion, registry));
 		registry->SetFunctionFlags("PapyrusIni", "GetPluginVersion", VMClassRegistry::kFunctionFlag_NoWait);
 
-		// Buffered
 
 		registry->RegisterFunction(
 			new NativeFunction1 <StaticFunctionTag, void, BSFixedString>("CreateBuffer", "BufferedIni", Buffered_CreateBuffer, registry));
@@ -361,139 +362,10 @@ namespace PapyrusIni {
 			new NativeFunction1 <StaticFunctionTag, void, BSFixedString>("CloseBuffer", "BufferedIni", Buffered_CloseBuffer, registry));
 		registry->SetFunctionFlags("BufferedIni", "CloseBuffer", VMClassRegistry::kFunctionFlag_NoWait);
 
-		// Standard API
-
-		// Non-Buffered
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, SInt32>("WriteInt", "PapyrusIni", Papyrus_WriteInt, registry));
-		registry->SetFunctionFlags("PapyrusIni", "WriteInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, float>("WriteFloat", "PapyrusIni", Papyrus_WriteFloat, registry));
-		registry->SetFunctionFlags("PapyrusIni", "WriteFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, bool>("WriteBool", "PapyrusIni", Papyrus_WriteBool, registry));
-		registry->SetFunctionFlags("PapyrusIni", "WriteBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("WriteString", "PapyrusIni", Papyrus_WriteString, registry));
-		registry->SetFunctionFlags("PapyrusIni", "WriteString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, SInt32, BSFixedString, BSFixedString, BSFixedString, SInt32>("ReadInt", "PapyrusIni", Papyrus_ReadInt, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, float, BSFixedString, BSFixedString, BSFixedString, float>("ReadFloat", "PapyrusIni", Papyrus_ReadFloat, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString, bool>("ReadBool", "PapyrusIni", Papyrus_ReadBool, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("ReadString", "PapyrusIni", Papyrus_ReadString, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasInt", "PapyrusIni", Papyrus_HasInt, registry));
-		registry->SetFunctionFlags("PapyrusIni", "HasInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasFloat", "PapyrusIni", Papyrus_HasFloat, registry));
-		registry->SetFunctionFlags("PapyrusIni", "HasFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasBool", "PapyrusIni", Papyrus_HasBool, registry));
-		registry->SetFunctionFlags("PapyrusIni", "HasBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasString", "PapyrusIni", Papyrus_HasString, registry));
-		registry->SetFunctionFlags("PapyrusIni", "HasString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, SInt32, BSFixedString, BSFixedString, BSFixedString, BSFixedString, SInt32>("ReadIntEx", "PapyrusIni", Papyrus_ReadIntEx, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadIntEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, float, BSFixedString, BSFixedString, BSFixedString, BSFixedString, float>("ReadFloatEx", "PapyrusIni", Papyrus_ReadFloatEx, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadFloatEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString, BSFixedString, bool>("ReadBoolEx", "PapyrusIni", Papyrus_ReadBoolEx, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadBoolEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("ReadStringEx", "PapyrusIni", Papyrus_ReadStringEx, registry));
-		registry->SetFunctionFlags("PapyrusIni", "ReadStringEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		// Buffered
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, SInt32>("WriteInt", "BufferedIni", Buffered_WriteInt, registry));
-		registry->SetFunctionFlags("BufferedIni", "WriteInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, float>("WriteFloat", "BufferedIni", Buffered_WriteFloat, registry));
-		registry->SetFunctionFlags("BufferedIni", "WriteFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, bool>("WriteBool", "BufferedIni", Buffered_WriteBool, registry));
-		registry->SetFunctionFlags("BufferedIni", "WriteBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("WriteString", "BufferedIni", Buffered_WriteString, registry));
-		registry->SetFunctionFlags("BufferedIni", "WriteString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, SInt32, BSFixedString, BSFixedString, BSFixedString, SInt32>("ReadInt", "BufferedIni", Buffered_ReadInt, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, float, BSFixedString, BSFixedString, BSFixedString, float>("ReadFloat", "BufferedIni", Buffered_ReadFloat, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString, bool>("ReadBool", "BufferedIni", Buffered_ReadBool, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction4 <StaticFunctionTag, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("ReadString", "BufferedIni", Buffered_ReadString, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasInt", "BufferedIni", Buffered_HasInt, registry));
-		registry->SetFunctionFlags("BufferedIni", "HasInt", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasFloat", "BufferedIni", Buffered_HasFloat, registry));
-		registry->SetFunctionFlags("BufferedIni", "HasFloat", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasBool", "BufferedIni", Buffered_HasBool, registry));
-		registry->SetFunctionFlags("BufferedIni", "HasBool", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("HasString", "BufferedIni", Buffered_HasString, registry));
-		registry->SetFunctionFlags("BufferedIni", "HasString", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, SInt32, BSFixedString, BSFixedString, BSFixedString, BSFixedString, SInt32>("ReadIntEx", "BufferedIni", Buffered_ReadIntEx, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadIntEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, float, BSFixedString, BSFixedString, BSFixedString, BSFixedString, float>("ReadFloatEx", "BufferedIni", Buffered_ReadFloatEx, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadFloatEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString, BSFixedString, bool>("ReadBoolEx", "BufferedIni", Buffered_ReadBoolEx, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadBoolEx", VMClassRegistry::kFunctionFlag_NoWait);
-
-		registry->RegisterFunction(
-			new NativeFunction5 <StaticFunctionTag, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString, BSFixedString>("ReadStringEx", "BufferedIni", Buffered_ReadStringEx, registry));
-		registry->SetFunctionFlags("BufferedIni", "ReadStringEx", VMClassRegistry::kFunctionFlag_NoWait);
+		REGISTER_ALL(Papyrus, Int, SInt32);
+		REGISTER_ALL(Papyrus, Float, float);
+		REGISTER_ALL(Papyrus, Bool, bool);
+		REGISTER_ALL(Papyrus, String, BSFixedString);
 
 		return true;
 	}

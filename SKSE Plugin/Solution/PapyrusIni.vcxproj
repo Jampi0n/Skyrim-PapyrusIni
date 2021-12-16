@@ -250,6 +250,7 @@
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="exportsLE.def" />
     <None Include="exportsSE.def" />
   </ItemGroup>
