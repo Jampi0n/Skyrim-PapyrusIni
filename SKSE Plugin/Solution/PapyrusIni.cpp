@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <ctime>
 #include <sstream>
+#include <filesystem>
 
 #include <ShlObj.h>
 #include <WinBase.h>
@@ -36,6 +37,9 @@ namespace PapyrusIni {
 			_MESSAGE(("[" + time + "] " + str).c_str());
 		}
 	public:
+		static void Error(std::string str) {
+			WriteLine("Error: " + str);
+		}
 		static void Msg(std::string str) {
 			WriteLine(str);
 		}
@@ -49,6 +53,36 @@ namespace PapyrusIni {
 	std::string IniAccess(std::string& path, std::string& section, std::string& key) {
 		return "{" + path + "}[" + section + "]<" + key + ">";
 	}
+
+	class FileHelper {
+	public:
+		static void CreateParentDir(std::string& iniFile) {
+			std::filesystem::path filePath(iniFile);
+			std::filesystem::path parentPath = filePath.parent_path();
+			std::filesystem::directory_entry directory(parentPath);
+			if (!directory.exists()) {
+				std::filesystem::create_directories(parentPath);
+			}
+		}
+
+		static void FileCannotBeLoaded(std::string& iniFile) {
+			std::filesystem::path filePath(iniFile);
+			std::filesystem::directory_entry iniEntry(filePath);
+			if (!iniEntry.exists()) {
+				Logger::Msg("File does not exist: " + iniFile);
+				Logger::Msg("\tDefault values will be used.");
+			}
+			else {
+				Logger::Error("Failed to parse file: " + iniFile);
+				Logger::Error("\tCheck that the file is not protected or corrupted.");
+			}
+		}
+
+		static void FileCannotBeSaved(std::string& iniFile) {
+			Logger::Error("Failed to save file: " + iniFile);
+			Logger::Error("\tCheck that the file is not protected or read-only.");
+		}
+	};
 
 	class IniCache {
 	private:
@@ -70,6 +104,10 @@ namespace PapyrusIni {
 		void Load() {
 			Logger::Msg("Load Cache: {" + path + "}");
 			SI_Error rc = ini.LoadFile(path.c_str());
+			if (rc < 0) {
+				FileHelper::FileCannotBeLoaded(path);
+				return;
+			}
 		}
 
 		std::string Read(std::string section, std::string key, std::string& def) {
@@ -81,13 +119,25 @@ namespace PapyrusIni {
 		void Write(std::string& section, std::string& key, std::string& value) {
 			Logger::DebugMsg("Write Cache: " + IniAccess(path, section, key) + " value=" + value);
 			modified = true;
-			ini.SetValue(section.c_str(), key.c_str(), value.c_str());
+			SI_Error rc = ini.SetValue(section.c_str(), key.c_str(), value.c_str());
+			if (rc < 0) {
+				Logger::Error("Failed to write buffer: " + path);
+				Logger::Error("\tThis is an error with PapyrusIni.Please report the bug.");
+				return;
+			}
 		}
 
 		void Save() {
-			Logger::Msg("Save Cache: {" + path + "}");
 			if (modified) {
-				ini.SaveFile(path.c_str());
+				Logger::Msg("Save Cache: {" + path + "} -> save");
+				FileHelper::CreateParentDir(path);
+				SI_Error rc = ini.SaveFile(path.c_str());
+				if (rc < 0) {
+					FileHelper::FileCannotBeSaved(path);
+				}
+			}
+			else {
+				Logger::Msg("Save Cache: {" + path + "} -> no changes");
 			}
 		}
 	};
@@ -109,6 +159,7 @@ namespace PapyrusIni {
 		/// <param name="path">Path to the .ini file.</param>
 		/// <returns></returns>
 		bool HasIniCache(std::string path) {
+			Logger::DebugMsg("HasIniCache: {" + path + "} -> return " + std::to_string(fileReaders.find(path) != fileReaders.end()));
 			return fileReaders.find(path) != fileReaders.end();
 		}
 
@@ -118,10 +169,12 @@ namespace PapyrusIni {
 		/// <param name="path">Path to the .ini file.</param>
 		/// <returns>A IniCache containing all values of the .ini file.</returns>
 		IniCache& GetIniCache(std::string path) {
-			Logger::DebugMsg("GetIniCache: {" + path + "}");
 			if (fileReaders.find(path) == fileReaders.end()) {
-				Logger::DebugMsg("GetIniCache: {" + path + "}->new");
+				Logger::DebugMsg("GetIniCache: {" + path + "} -> get new");
 				fileReaders.emplace(path, std::make_unique<IniCache>(path));
+			}
+			else {
+				Logger::DebugMsg("GetIniCache: {" + path + "} -> get existing");
 			}
 			return *fileReaders.at(path).get();
 		}
@@ -131,11 +184,13 @@ namespace PapyrusIni {
 		/// </summary>
 		/// <param name="path">Path to the .ini file.</param>
 		void CloseIniCache(std::string path) {
-			Logger::DebugMsg("CloseIniCache: {" + path + "}");
 			if (fileReaders.find(path) != fileReaders.end()) {
-				Logger::DebugMsg("CloseIniCache: {" + path + "}->new");
+				Logger::DebugMsg("CloseIniCache: {" + path + "} -> close existing");
 				fileReaders[path].get()->Save();
 				fileReaders.erase(path);
+			}
+			else {
+				Logger::DebugMsg("CloseIniCache: {" + path + "} -> does not exist");
 			}
 		}
 
@@ -157,6 +212,7 @@ namespace PapyrusIni {
 	}
 
 	void WriteString(std::string& fileName, std::string& section, std::string& key, std::string& value, bool cache) {
+		Logger::DebugMsg("Write File: " + IniAccess(fileName, section, key) + " value=" + value);
 		// write to cache, creating one if it does not exist
 		if (cache) {
 			IniHandler::GetInstance().GetIniCache(fileName).Write(section, key, value);
@@ -167,7 +223,11 @@ namespace PapyrusIni {
 				IniHandler::GetInstance().GetIniCache(fileName).Write(section, key, value);
 			}
 			// write without cache
-			WritePrivateProfileStringA(section.c_str(), key.c_str(), value.c_str(), fileName.c_str());
+			FileHelper::CreateParentDir(fileName);
+			if (!WritePrivateProfileStringA(section.c_str(), key.c_str(), value.c_str(), fileName.c_str())) {
+				Logger::Msg("Failed to write file: " + fileName);
+				Logger::Msg("	 Check that the path is correct and the file is not protected or read-only.");
+			}
 		}
 	}
 
@@ -192,8 +252,13 @@ namespace PapyrusIni {
 			}
 			// read without cache
 			char inBuf[BUFFER_SIZE];
-			GetPrivateProfileStringA(section.c_str(), key.c_str(), def.c_str(), inBuf, BUFFER_SIZE, fileName.c_str());
-			value = std::string(inBuf);
+			if (GetPrivateProfileStringA(section.c_str(), key.c_str(), def.c_str(), inBuf, BUFFER_SIZE, fileName.c_str())) {
+				value = std::string(inBuf);
+			}
+			else {
+				FileHelper::FileCannotBeLoaded(fileName);
+			}
+			Logger::DebugMsg("Read File: " + IniAccess(fileName, section, key) + " value=" + value);
 		}
 		return value;
 	}
@@ -261,6 +326,10 @@ namespace PapyrusIni {
 		return std::string(in.data);
 	}
 
+	std::string FromPapyrusPath(BSFixedString path) {
+		return std::string("Data\\") + path.data;
+	}
+
 	void Buffered_CreateBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
 		CreateCache(ToStdString(file));
 	}
@@ -276,15 +345,15 @@ namespace PapyrusIni {
 	}
 
 #define DEFINE_FUNCTIONS_PREFIX(Prefix, Type, cType, cache, in, out) \
-void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType value) { Write##Type(ToStdString(file), ToStdString(section), ToStdString(key), in(value), cache);} \
-cType Prefix##_Read##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType def) { return out(Read##Type(ToStdString(file), ToStdString(section), ToStdString(key), in(def), cache));} \
-bool Prefix##_Has##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key) { return Has##Type(ToStdString(file), ToStdString(section), ToStdString(key), cache);} \
+void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType value) { Write##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), in(value), cache);} \
+cType Prefix##_Read##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType def) { return out(Read##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), in(def), cache));} \
+bool Prefix##_Has##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key) { return Has##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), cache);} \
 \
 cType Prefix##_Read##Type##Ex(PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFixedString fileUser, BSFixedString section, BSFixedString key, cType def) { \
-	if(!Has##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), cache)) {\
-		Write##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), in(def), cache); \
+	if(!Has##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), cache)) {\
+		Write##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), in(def), cache); \
 	} \
-	return out(Read##Type(ToStdString(fileUser), ToStdString(section), ToStdString(key), Read##Type(ToStdString(fileDefault), ToStdString(section), ToStdString(key), in(def), cache), cache));\
+	return out(Read##Type(FromPapyrusPath(fileUser), ToStdString(section), ToStdString(key), Read##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), in(def), cache), cache));\
 }
 
 #define DEFINE_FUNCTIONS(Type, cType, in, out) \
