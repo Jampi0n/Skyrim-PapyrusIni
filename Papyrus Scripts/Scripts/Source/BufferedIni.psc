@@ -21,6 +21,10 @@ scriptname BufferedIni
 ;   If outside changes need to be possible, the buffer should be closed after every sequence of buffered reads or buffered writes.
 ;   In that case, buffered reads should also only be used, if you read at least 5 to 10 settings at the same time.
 
+; Notes
+
+; Since the ReadEx functions also write default values to the default ini file if they do not exist, you also need to write the buffer after using them.
+
 
 ; Writes the buffered write operations to the file, but keeps the buffer open.
 ; Should be used, if further buffered ini operations are possible, but not guaranteed.

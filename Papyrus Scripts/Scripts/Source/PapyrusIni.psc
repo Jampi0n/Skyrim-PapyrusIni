@@ -19,17 +19,18 @@ scriptname PapyrusIni
 ;
 
 ; WriteType:
-;   writes to the .ini file and creates it if necesseary
+;   Writes to the .ini file and creates it if necesseary.
 
 ; ReadType:
-;   reads from the .ini file and returns a default value if it does not exist
+;   Reads from the .ini file and returns a default value if it does not exist, has the wrong type or is inaccessible for another reason (permissions for example).
 
 ; ReadTypeEx:
-;   if fileDefault does not have the ini value, the default value is written to it.
-;   Tries to read from fileUser. If the setting does not exist in fileUser, reads from fileDefault instead (always exists).
+;   Tries to read from fileUser. If the setting does not exist in fileUser, reads from fileDefault.
+;   If fileDefault does not have the ini value, the default value is written to it and the default value is returned.
 
 ; HasType:
-;   returns if the ini has the value
+;   Returns if the ini has the value of the correct type. Returns false, if the file does not exist or is inaccessible for another reason (permissions for example).
+;   If the value exists, but has the wrong type it also returns false.
 
 Int Function GetPluginVersion() Global Native
 
