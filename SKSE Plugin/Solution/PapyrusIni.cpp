@@ -211,7 +211,18 @@ namespace PapyrusIni {
 		IniHandler::GetInstance().CloseIniCache(fileName);
 	}
 
-	void WriteString(std::string& fileName, std::string& section, std::string& key, std::string& value, bool cache) {
+	std::pair<std::string, std::string> ExtractSettingAndKey(std::string& settingName) {
+		auto colonIndex = settingName.find(':');
+		auto key = settingName.substr(0, colonIndex);
+		auto section = settingName.substr(colonIndex + 1);
+		return std::pair<std::string, std::string>(section, key);
+	}
+
+	void WriteString(std::string& fileName, std::string& settingName, std::string& value, bool cache) {
+		auto pair = ExtractSettingAndKey(settingName);
+		auto& section = pair.first;
+		auto& key = pair.second;
+
 		Logger::DebugMsg("Write File: " + IniAccess(fileName, section, key) + " value=" + value);
 		// write to cache, creating one if it does not exist
 		if (cache) {
@@ -231,15 +242,19 @@ namespace PapyrusIni {
 		}
 	}
 
-	void WriteInt(std::string& fileName, std::string& section, std::string& key, SInt32 value, bool cache) { WriteString(fileName, section, key, std::to_string(value), cache); }
-	void WriteBool(std::string& fileName, std::string& section, std::string& key, bool value, bool cache) { WriteString(fileName, section, key, std::string(value ? "1" : "0"), cache); }
-	void WriteFloat(std::string& fileName, std::string& section, std::string& key, float value, bool cache) { WriteString(fileName, section, key, std::to_string(value), cache); }
+	void WriteInt(std::string& fileName, std::string& settingName, SInt32 value, bool cache) { WriteString(fileName, settingName, std::to_string(value), cache); }
+	void WriteBool(std::string& fileName, std::string& settingName, bool value, bool cache) { WriteString(fileName, settingName, std::string(value ? "1" : "0"), cache); }
+	void WriteFloat(std::string& fileName, std::string& settingName, float value, bool cache) { WriteString(fileName, settingName, std::to_string(value), cache); }
 
 	void CloseReader(std::string& fileName) {
 		IniHandler::GetInstance().CloseIniCache(fileName);
 	}
 
-	std::string ReadString(std::string& fileName, std::string& section, std::string& key, std::string& def, bool cache) {
+	std::string ReadString(std::string& fileName, std::string& settingName, std::string& def, bool cache) {
+		auto pair = ExtractSettingAndKey(settingName);
+		auto& section = pair.first;
+		auto& key = pair.second;
+
 		std::string value;
 		// read from cache, creating one if it does not exist
 		if (cache) {
@@ -248,7 +263,7 @@ namespace PapyrusIni {
 		else {
 			// read from cache if it exists, but do not create a new one
 			if (IniHandler::GetInstance().HasIniCache(fileName)) {
-				return ReadString(fileName, section, key, def, true);
+				return ReadString(fileName, settingName, def, true);
 			}
 			// read without cache
 			char inBuf[BUFFER_SIZE];
@@ -263,10 +278,11 @@ namespace PapyrusIni {
 		return value;
 	}
 
-	SInt32 ReadInt(std::string& fileName, std::string& section, std::string& key, SInt32 def, bool cache) {
+	SInt32 ReadInt(std::string& fileName, std::string& settingName, SInt32 def, bool cache) {
+
 		SInt32 value;
 		try {
-			value = std::stoi(ReadString(fileName, section, key, std::to_string(def), cache).c_str());
+			value = std::stoi(ReadString(fileName, settingName, std::to_string(def), cache).c_str());
 		}
 		catch (std::invalid_argument) {
 			value = def;
@@ -274,10 +290,10 @@ namespace PapyrusIni {
 		return value;
 	}
 
-	float ReadFloat(std::string& fileName, std::string& section, std::string& key, float def, bool cache) {
+	float ReadFloat(std::string& fileName, std::string& settingName, float def, bool cache) {
 		float value = def;
 		try {
-			value = std::stof(ReadString(fileName, section, key, std::to_string(def), cache).c_str());
+			value = std::stof(ReadString(fileName, settingName, std::to_string(def), cache).c_str());
 		}
 		catch (std::invalid_argument) {
 			value = def;
@@ -285,32 +301,36 @@ namespace PapyrusIni {
 		return value;
 	}
 
-	bool ReadBool(std::string& fileName, std::string& section, std::string& key, bool def, bool cache) { return ReadInt(fileName, section, key, def ? 1 : 0, cache) == 1; }
 
-	bool HasString(std::string& fileName, std::string& section, std::string& key, bool cache) {
-		auto zero = ReadString(fileName, section, key, std::string("zero"), cache);
-		auto one = ReadString(fileName, section, key, std::string("one"), cache);
+
+	bool ReadBool(std::string& fileName, std::string& settingName, bool def, bool cache) {
+		return ReadInt(fileName, settingName, def ? 1 : 0, cache) == 1;
+	}
+
+	bool HasString(std::string& fileName, std::string& settingName, bool cache) {
+		auto zero = ReadString(fileName, settingName, std::string("zero"), cache);
+		auto one = ReadString(fileName, settingName, std::string("one"), cache);
 		auto result = (zero.compare(std::string("zero")) != 0) || (one.compare(std::string("one")) != 0);
 		return result;
 	}
 
-	bool HasInt(std::string& fileName, std::string& section, std::string& key, bool cache) {
-		auto zero = ReadInt(fileName, section, key, 0, cache);
-		auto one = ReadInt(fileName, section, key, 1, cache);
+	bool HasInt(std::string& fileName, std::string& settingName, bool cache) {
+		auto zero = ReadInt(fileName, settingName, 0, cache);
+		auto one = ReadInt(fileName, settingName, 1, cache);
 		auto result = (zero != 0) || (one != 1);
 		return result;
 	}
 
-	bool HasFloat(std::string& fileName, std::string& section, std::string& key, bool cache) {
-		auto zero = ReadFloat(fileName, section, key, 0.0, cache);
-		auto one = ReadFloat(fileName, section, key, 1.0, cache);
+	bool HasFloat(std::string& fileName, std::string& settingName, bool cache) {
+		auto zero = ReadFloat(fileName, settingName, 0.0, cache);
+		auto one = ReadFloat(fileName, settingName, 1.0, cache);
 		auto result = (zero != 0.0) || (one != 1.0);
 		return result;
 	}
 
-	bool HasBool(std::string& fileName, std::string& section, std::string& key, bool cache) {
-		bool zero = ReadBool(fileName, section, key, false, cache);
-		bool one = ReadBool(fileName, section, key, true, cache);
+	bool HasBool(std::string& fileName, std::string& settingName, bool cache) {
+		bool zero = ReadBool(fileName, settingName, false, cache);
+		bool one = ReadBool(fileName, settingName, true, cache);
 		auto result = (zero != false) || (one != true);
 		return result;
 	}
@@ -345,55 +365,55 @@ namespace PapyrusIni {
 	}
 
 #define DEFINE_FUNCTIONS_PREFIX(Prefix, Type, cType, cache, in, out) \
-void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType value) { Write##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), in(value), cache);} \
-cType Prefix##_Read##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key, cType def) { return out(Read##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), in(def), cache));} \
-bool Prefix##_Has##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString section, BSFixedString key) { return Has##Type(FromPapyrusPath(file), ToStdString(section), ToStdString(key), cache);} \
+void Prefix##_Write##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString settingName, cType value) { Write##Type(FromPapyrusPath(file), ToStdString(settingName), in(value), cache);} \
+cType Prefix##_Read##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString settingName, cType def) { return out(Read##Type(FromPapyrusPath(file), ToStdString(settingName) , in(def), cache));} \
+bool Prefix##_Has##Type(PAPYRUS_FUNCTION, BSFixedString file, BSFixedString settingName) { return Has##Type(FromPapyrusPath(file), ToStdString(settingName) , cache);} \
 \
-cType Prefix##_Read##Type##Ex(PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFixedString fileUser, BSFixedString section, BSFixedString key, cType def) { \
-	if(!Has##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), cache)) {\
-		Write##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), in(def), cache); \
+cType Prefix##_Read##Type##Ex(PAPYRUS_FUNCTION, BSFixedString fileDefault, BSFixedString fileUser, BSFixedString settingName, cType def) { \
+	if(!Has##Type(FromPapyrusPath(fileDefault), ToStdString(settingName), cache)) {\
+		Write##Type(FromPapyrusPath(fileDefault), ToStdString(settingName), in(def), cache); \
 	} \
-	return out(Read##Type(FromPapyrusPath(fileUser), ToStdString(section), ToStdString(key), Read##Type(FromPapyrusPath(fileDefault), ToStdString(section), ToStdString(key), in(def), cache), cache));\
+	return out(Read##Type(FromPapyrusPath(fileUser), ToStdString(settingName), Read##Type(FromPapyrusPath(fileDefault), ToStdString(settingName), in(def), cache), cache));\
 }
 
 #define DEFINE_FUNCTIONS(Type, cType, in, out) \
 DEFINE_FUNCTIONS_PREFIX(Papyrus, Type, cType, false, in, out) \
 DEFINE_FUNCTIONS_PREFIX(Buffered, Type, cType, true, in, out)
 
-#define DEFINE_ALL \
-DEFINE_FUNCTIONS(Int, SInt32, , )\
-DEFINE_FUNCTIONS(Float, float, , )\
-DEFINE_FUNCTIONS(Bool, bool, , )\
+
+DEFINE_FUNCTIONS(Int, SInt32, , )
+DEFINE_FUNCTIONS(Float, float, , )
+DEFINE_FUNCTIONS(Bool, bool, , )
 DEFINE_FUNCTIONS(String, BSFixedString, ToStdString, ToPapyrusString)
 
-	DEFINE_ALL
+
 
 #define REGISTER_WRITE(Prefix, Type, cType) registry->RegisterFunction( \
-new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "PapyrusIni", Papyrus##_Write##Type, registry)); \
+new NativeFunction3 <StaticFunctionTag, void, BSFixedString, BSFixedString, cType>("Write" #Type, "PapyrusIni", Papyrus##_Write##Type, registry)); \
 	registry->SetFunctionFlags("PapyrusIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
 registry->RegisterFunction( \
-new NativeFunction4 <StaticFunctionTag, void, BSFixedString, BSFixedString, BSFixedString, cType>("Write" #Type, "BufferedIni", Buffered##_Write##Type, registry)); \
+new NativeFunction3 <StaticFunctionTag, void, BSFixedString, BSFixedString, cType>("Write" #Type, "BufferedIni", Buffered##_Write##Type, registry)); \
 	registry->SetFunctionFlags("BufferedIni", "Write" #Type, VMClassRegistry::kFunctionFlag_NoWait)
 
 #define REGISTER_READ(Prefix, Type, cType) registry->RegisterFunction( \
-new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "PapyrusIni", Papyrus##_Read##Type, registry)); \
+new NativeFunction3 <StaticFunctionTag, cType, BSFixedString, BSFixedString, cType>("Read" #Type, "PapyrusIni", Papyrus##_Read##Type, registry)); \
 	registry->SetFunctionFlags("PapyrusIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
 registry->RegisterFunction( \
-new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type, "BufferedIni", Buffered##_Read##Type, registry)); \
+new NativeFunction3 <StaticFunctionTag, cType, BSFixedString, BSFixedString, cType>("Read" #Type, "BufferedIni", Buffered##_Read##Type, registry)); \
 	registry->SetFunctionFlags("BufferedIni", "Read" #Type, VMClassRegistry::kFunctionFlag_NoWait)
 
 #define REGISTER_HAS(Prefix, Type, cType) registry->RegisterFunction( \
-new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "PapyrusIni", Papyrus##_Has##Type, registry)); \
+new NativeFunction2 <StaticFunctionTag, bool, BSFixedString, BSFixedString>("Has" #Type, "PapyrusIni", Papyrus##_Has##Type, registry)); \
 	registry->SetFunctionFlags("PapyrusIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait); \
 registry->RegisterFunction( \
-new NativeFunction3 <StaticFunctionTag, bool, BSFixedString, BSFixedString, BSFixedString>("Has" #Type, "BufferedIni", Buffered##_Has##Type, registry)); \
+new NativeFunction2 <StaticFunctionTag, bool, BSFixedString, BSFixedString>("Has" #Type, "BufferedIni", Buffered##_Has##Type, registry)); \
 	registry->SetFunctionFlags("BufferedIni", "Has" #Type, VMClassRegistry::kFunctionFlag_NoWait)
 
 #define REGISTER_READ_EX(Prefix, Type, cType) registry->RegisterFunction( \
-new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "PapyrusIni", Papyrus##_Read##Type##Ex, registry)); \
+new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "PapyrusIni", Papyrus##_Read##Type##Ex, registry)); \
 	registry->SetFunctionFlags("PapyrusIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait); \
 registry->RegisterFunction( \
-new NativeFunction5 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "BufferedIni", Buffered##_Read##Type##Ex, registry)); \
+new NativeFunction4 <StaticFunctionTag, cType, BSFixedString, BSFixedString, BSFixedString, cType>("Read" #Type "Ex", "BufferedIni", Buffered##_Read##Type##Ex, registry)); \
 	registry->SetFunctionFlags("BufferedIni", "Read" #Type "Ex", VMClassRegistry::kFunctionFlag_NoWait)
 
 #define REGISTER_ALL(Prefix, Type, cType) \

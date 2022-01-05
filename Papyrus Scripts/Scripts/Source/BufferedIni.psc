@@ -44,22 +44,22 @@ Function CloseBuffer(string file) Global Native
 ; This is only needed, if you are dealing with very large ini files (thousands of entries).
 Function CreateBuffer(string file) Global Native
 
-Function WriteInt(string file, string section, string key, int value) Global Native
-Int Function ReadInt(string file, string section, string key, int default) Global Native
-Int Function ReadIntEx(string fileDefault, string fileUser, string section, string key, int default) Global Native
-Bool Function HasInt(string file, string section, string key) Global Native
+Function WriteInt(string file, string settingName, int value) Global Native
+Function WriteFloat(string file, string settingName, float value) Global Native
+Function WriteBool(string file, string settingName, bool value) Global Native
+Function WriteString(string file, string settingName, string value) Global Native
 
-Function WriteFloat(string file, string section, string key, float value) Global Native
-Float Function ReadFloat(string file, string section, string key, float default) Global Native
-Float Function ReadFloatEx(string fileDefault, string fileUser, string section, string key, float default) Global Native
-Bool Function HasFloat(string file, string section, string key) Global Native
+Int Function ReadInt(string file, string settingName, int default) Global Native
+Float Function ReadFloat(string file, string settingName, float default) Global Native
+Bool Function ReadBool(string file, string settingName, bool default) Global Native
+String Function ReadString(string file, string settingName, string default) Global Native
 
-Function WriteBool(string file, string section, string key, bool value) Global Native
-Bool Function ReadBool(string file, string section, string key, bool default) Global Native
-Bool Function ReadBoolEx(string fileDefault, string fileUser, string section, string key, bool default) Global Native
-Bool Function HasBool(string file, string section, string key) Global Native
+Bool Function HasInt(string file, string settingName) Global Native
+Bool Function HasFloat(string file, string settingName) Global Native
+Bool Function HasBool(string file, string settingName) Global Native
+Bool Function HasString(string file, string settingName) Global Native
 
-Function WriteString(string file, string section, string key, string value) Global Native
-String Function ReadString(string file, string section, string key, string default) Global Native
-String Function ReadStringEx(string fileDefault, string fileUser, string section, string key, string default) Global Native
-Bool Function HasString(string file, string section, string key) Global Native
+Int Function ReadIntEx(string fileDefault, string fileUser, string settingName, int default) Global Native
+Float Function ReadFloatEx(string fileDefault, string fileUser, string settingName, float default) Global Native
+Bool Function ReadBoolEx(string fileDefault, string fileUser, string settingName, bool default) Global Native
+String Function ReadStringEx(string fileDefault, string fileUser, string settingName, string default) Global Native

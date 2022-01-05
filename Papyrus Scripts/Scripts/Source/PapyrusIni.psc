@@ -3,16 +3,14 @@ scriptname PapyrusIni
 ; Parameters:
 ; string file:
 ;   filename of the .ini file starting in the Data directory. e.g. "Config\\MyConfigFile.ini"
-; string section:
-;   section in the ini file. e.g. "MySection"
-; string key:
-;   key of the ini entry. e.g. "MyInt"
+; settingName:
+;   section and key in the ini file separated by a colon. e.g. "MyInt:MySection"
 ; type value:
 ;   When writing, this value will be written to the ini file.
 ; type default:
 ;   When reading, this value will be returned, if the value could not be read (e.g. ini file does not exist or does not contain the entry)
 ;
-;   For example WriteInt("Config\\MyConfigFile.ini", "MySection", "MyInt", 0) will result in:
+;   For example WriteInt("Config\\MyConfigFile.ini", "MyInt:MySection", 0) will result in:
 ;
 ;       [MySection]
 ;       MyInt = 0
@@ -34,22 +32,23 @@ scriptname PapyrusIni
 
 Int Function GetPluginVersion() Global Native
 
-Function WriteInt(string file, string section, string key, int value) Global Native
-Int Function ReadInt(string file, string section, string key, int default) Global Native
-Int Function ReadIntEx(string fileDefault, string fileUser, string section, string key, int default) Global Native
-Bool Function HasInt(string file, string section, string key) Global Native
+Function WriteInt(string file, string settingName, int value) Global Native
+Function WriteFloat(string file, string settingName, float value) Global Native
+Function WriteBool(string file, string settingName, bool value) Global Native
+Function WriteString(string file, string settingName, string value) Global Native
 
-Function WriteFloat(string file, string section, string key, float value) Global Native
-Float Function ReadFloat(string file, string section, string key, float default) Global Native
-Float Function ReadFloatEx(string fileDefault, string fileUser, string section, string key, float default) Global Native
-Bool Function HasFloat(string file, string section, string key) Global Native
+Int Function ReadInt(string file, string settingName, int default) Global Native
+Float Function ReadFloat(string file, string settingName, float default) Global Native
+Bool Function ReadBool(string file, string settingName, bool default) Global Native
+String Function ReadString(string file, string settingName, string default) Global Native
 
-Function WriteBool(string file, string section, string key, bool value) Global Native
-Bool Function ReadBool(string file, string section, string key, bool default) Global Native
-Bool Function ReadBoolEx(string fileDefault, string fileUser, string section, string key, bool default) Global Native
-Bool Function HasBool(string file, string section, string key) Global Native
+Bool Function HasInt(string file, string settingName) Global Native
+Bool Function HasFloat(string file, string settingName) Global Native
+Bool Function HasBool(string file, string settingName) Global Native
+Bool Function HasString(string file, string settingName) Global Native
 
-Function WriteString(string file, string section, string key, string value) Global Native
-String Function ReadString(string file, string section, string key, string default) Global Native
-String Function ReadStringEx(string fileDefault, string fileUser, string section, string key, string default) Global Native
-Bool Function HasString(string file, string section, string key) Global Native
+Int Function ReadIntEx(string fileDefault, string fileUser, string settingName, int default) Global Native
+Float Function ReadFloatEx(string fileDefault, string fileUser, string settingName, float default) Global Native
+Bool Function ReadBoolEx(string fileDefault, string fileUser, string settingName, bool default) Global Native
+String Function ReadStringEx(string fileDefault, string fileUser, string settingName, string default) Global Native
+
