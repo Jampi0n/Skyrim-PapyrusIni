@@ -213,6 +213,10 @@ namespace PapyrusIni {
 
 	std::pair<std::string, std::string> ExtractSettingAndKey(std::string& settingName) {
 		auto colonIndex = settingName.find(':');
+		if (colonIndex == -1) {
+			Logger::Error("Invalid setting name: \"" + settingName + "\"");
+			return std::make_pair<std::string, std::string>("", "");
+		}
 		auto key = settingName.substr(0, colonIndex);
 		auto section = settingName.substr(colonIndex + 1);
 		return std::pair<std::string, std::string>(section, key);
@@ -222,6 +226,10 @@ namespace PapyrusIni {
 		auto pair = ExtractSettingAndKey(settingName);
 		auto& section = pair.first;
 		auto& key = pair.second;
+		if (section.compare("") == 0 || key.compare("") == 0) {
+			Logger::Msg("No value was written for setting name: \"" + settingName + "\"");
+			return;
+		}
 
 		Logger::DebugMsg("Write File: " + IniAccess(fileName, section, key) + " value=" + value);
 		// write to cache, creating one if it does not exist
@@ -254,6 +262,11 @@ namespace PapyrusIni {
 		auto pair = ExtractSettingAndKey(settingName);
 		auto& section = pair.first;
 		auto& key = pair.second;
+
+		if (section.compare("") == 0 || key.compare("") == 0) {
+			Logger::Msg("No value was read for setting name: \"" + settingName + "\"");
+			return def;
+		}
 
 		std::string value;
 		// read from cache, creating one if it does not exist
@@ -351,13 +364,13 @@ namespace PapyrusIni {
 	}
 
 	void Buffered_CreateBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
-		CreateCache(ToStdString(file));
+		CreateCache(FromPapyrusPath(file));
 	}
 	void Buffered_WriteBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
-		WriteCache(ToStdString(file));
+		WriteCache(FromPapyrusPath(file));
 	}
 	void Buffered_CloseBuffer(PAPYRUS_FUNCTION, BSFixedString file) {
-		CloseCache(ToStdString(file));
+		CloseCache(FromPapyrusPath(file));
 	}
 
 	SInt32 Papyrus_GetPluginVersion(StaticFunctionTag* base) {
