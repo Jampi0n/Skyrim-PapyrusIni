@@ -40,7 +40,7 @@ Function WriteString(string file, string settingName, string value) Global Nativ
 Int Function ReadInt(string file, string settingName, int default) Global Native
 Float Function ReadFloat(string file, string settingName, float default) Global Native
 Bool Function ReadBool(string file, string settingName, bool default) Global Native
-String Function ReadString(string file, string settingName, string default) Global Native
+String Function ReadString(string file, string settingName, string default, int maxLength=128) Global Native
 
 Bool Function HasInt(string file, string settingName) Global Native
 Bool Function HasFloat(string file, string settingName) Global Native
@@ -50,5 +50,5 @@ Bool Function HasString(string file, string settingName) Global Native
 Int Function ReadIntEx(string fileDefault, string fileUser, string settingName, int default) Global Native
 Float Function ReadFloatEx(string fileDefault, string fileUser, string settingName, float default) Global Native
 Bool Function ReadBoolEx(string fileDefault, string fileUser, string settingName, bool default) Global Native
-String Function ReadStringEx(string fileDefault, string fileUser, string settingName, string default) Global Native
+String Function ReadStringEx(string fileDefault, string fileUser, string settingName, string default, int maxLength=128) Global Native
 

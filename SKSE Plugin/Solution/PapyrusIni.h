@@ -7,7 +7,7 @@
 #include "skse64/PapyrusNativeFunctions.h"
 #endif
 
-#define PLUGIN_VERSION 2
+#define PLUGIN_VERSION 201000
 
 namespace PapyrusIni
 {
